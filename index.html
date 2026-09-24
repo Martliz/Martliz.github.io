@@ -307,6 +307,7 @@
   .repo p{color:var(--suave);font-size:.95rem;flex:1}
   .repo__meta{display:flex;flex-wrap:wrap;gap:1rem;font-size:.85rem;color:var(--suave)}
   .punto{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:.35rem;vertical-align:0}
+  .ver-todos{margin-top:2rem;text-align:center}
   .estado{grid-column:1/-1;color:var(--suave);padding:2rem;border:1px dashed var(--borde);border-radius:18px;text-align:center}
 
   /* ---------- Contacto ---------- */
@@ -723,6 +724,7 @@
     <div class="repos" id="repos">
       <p class="estado">Cargando repositorios…</p>
     </div>
+    <p class="ver-todos" id="verTodos" hidden><a class="btn btn--borde" href="https://github.com/Martliz?tab=repositories" target="_blank" rel="noopener">Ver todos mis repositorios en GitHub</a></p>
   </section>
 
   <!-- ================= CONTACTO ================= -->
@@ -793,6 +795,12 @@
 <script>
 /* ========== CONFIGURACIÓN (edita aquí) ========== */
 const USUARIO_GITHUB = "Martliz";
+// Cuántos repositorios mostrar en el portafolio
+const MAX_REPOS = 6;
+// Opcional: nombres de repos que quieres mostrar primero, en este orden. Ej: ["infraestructura-viva", "otro-repo"]
+const REPOS_DESTACADOS = ["infraestructura-viva"];
+// Opcional: nombres de repos públicos que NO quieres mostrar
+const REPOS_OCULTOS = [];
 const CORREO_DESTINO = "lizalmarga@gmail.com";
 const ROLES = [
   "Arquitecta Cloud en formación",
@@ -1096,7 +1104,19 @@ const reducirMovimiento = window.matchMedia("(prefers-reduced-motion: reduce)").
         .catch(err => { if (cache) return cache.d; throw err; });
   pedir
     .then(data => {
-      repos = data.filter(r => !r.fork);
+      const minus = n => n.toLowerCase();
+      const ocultos = [...REPOS_OCULTOS, `${USUARIO_GITHUB}.github.io`, USUARIO_GITHUB].map(minus);
+      const destacados = REPOS_DESTACADOS.map(minus);
+      // Solo repos públicos, propios, activos y no ocultos
+      const visibles = data.filter(r => !r.private && !r.fork && !r.archived && !ocultos.includes(minus(r.name)));
+      // Primero los destacados en el orden indicado, luego los más recientes
+      visibles.sort((a, b) => {
+        const ia = destacados.indexOf(minus(a.name)), ib = destacados.indexOf(minus(b.name));
+        if (ia !== -1 || ib !== -1) return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+        return new Date(b.pushed_at) - new Date(a.pushed_at);
+      });
+      repos = visibles.slice(0, MAX_REPOS);
+      if (visibles.length > MAX_REPOS) document.getElementById("verTodos").hidden = false;
       crearFiltros();
       tarjetas(repos);
     })
